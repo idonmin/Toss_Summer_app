@@ -1,0 +1,222 @@
+/* When the software keyboard opens, the browser scrolls the focused field
+   into view; this padding keeps it clear of the fixed bottom CTA. */
+html {
+  scroll-padding-bottom: 120px;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+@media (min-width: 481px) {
+  #root {
+    /* TDS token via CSS variable. @toss/tds-mobile-ait currently pins the
+       theme to light, so this always resolves to #ffffff today — the var +
+       fallback just keeps us aligned with TDS if dark support arrives. */
+    background-color: var(--adaptiveBackground, #ffffff) !important;
+    max-width: 480px;
+    margin: 0 auto;
+  }
+}
+
+/* Shared vertical layout for each wizard step. */
+.step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 8px 24px 24px;
+}
+
+/* --- Photo upload step --- */
+
+.photo-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: 100%;
+  min-height: 240px;
+  border: 2px dashed #c9d2dc;
+  border-radius: 16px;
+  background-color: #f7f9fb;
+  cursor: pointer;
+}
+
+.photo-placeholder:disabled {
+  opacity: 0.5;
+}
+
+.photo-placeholder-emoji {
+  font-size: 40px;
+  margin-bottom: 4px;
+}
+
+.photo-selected {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.photo-preview {
+  width: 100%;
+  border-radius: 16px;
+  /* The photo keeps its own aspect ratio; capping height prevents a portrait
+     shot from pushing the CTA below the fold on small screens. */
+  max-height: 60vh;
+  object-fit: contain;
+  background-color: #f2f4f6;
+}
+
+/* --- Write step --- */
+
+.field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 6px;
+}
+
+.field-row-column {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.date-input {
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 12px;
+  border: 1px solid #e5e8eb;
+  border-radius: 8px;
+  background-color: #ffffff;
+  /* Background is fixed white, so the text color must be fixed too —
+     `inherit` would pick up a near-white adaptive color in dark mode. */
+  color: #333d4b;
+}
+
+/* --- Preview step: diary card per the spec's basic layout --- */
+
+.diary-card {
+  border: 1.5px solid #d8c9a3;
+  border-radius: 12px;
+  background-color: #fffdf5;
+  overflow: hidden;
+}
+
+.diary-card-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1.5px solid #e7dcbd;
+  font-size: 14px;
+  color: #6b5e3f;
+}
+
+.diary-card-photo img {
+  display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
+}
+
+.diary-card-photo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 160px;
+  color: #b0a988;
+  font-size: 14px;
+}
+
+.diary-card-title {
+  padding: 14px 16px 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #40371f;
+  border-top: 1.5px solid #e7dcbd;
+  /* A 30-char title without spaces must wrap instead of being clipped by
+     the card's overflow: hidden. */
+  word-break: break-word;
+}
+
+.diary-card-content {
+  padding: 4px 16px 16px;
+  font-size: 15px;
+  line-height: 1.9;
+  color: #4c432a;
+  /* User text may contain intentional line breaks; render them as written. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  /* Ruled-notebook feel: line spacing matches the 1.9em line-height above. */
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent calc(1.9em - 1px),
+    #eee3c4 calc(1.9em - 1px),
+    #eee3c4 1.9em
+  );
+}
+
+.diary-card-comment {
+  padding: 12px 16px;
+  border-top: 1.5px dashed #e7dcbd;
+  background-color: #fbf7e8;
+}
+
+/* --- Stage 2: analysis marks, tags and comment states --- */
+
+/* <mark> is used for its screen-reader semantics; kill its default yellow
+   background so only the pencil-style decoration shows. */
+mark.highlight-circle,
+mark.highlight-underline {
+  background: transparent;
+  color: inherit;
+}
+
+.highlight-circle {
+  border: 2px solid rgba(224, 82, 60, 0.65);
+  /* Slightly irregular oval reads as hand-drawn rather than a UI chip. */
+  border-radius: 48% 52% 46% 54% / 58% 44% 56% 42%;
+  padding: 0 3px;
+  /* When a circled word wraps across lines, repeat the border on each
+     fragment instead of leaving open ends. */
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+}
+
+.highlight-underline {
+  text-decoration: underline wavy rgba(224, 82, 60, 0.7);
+  text-decoration-thickness: 2px;
+  /* Clears the ruled-notebook background line under the text. */
+  text-underline-offset: 5px;
+}
+
+.comment-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.comment-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.diary-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.diary-tag {
+  font-size: 12px;
+  color: #6b5e3f;
+  background-color: #f3ecd2;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
