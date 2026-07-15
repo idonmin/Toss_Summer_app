@@ -7,6 +7,7 @@ import type { DiaryDraft } from "../hooks/useDiaryDraft";
 import type { SketchState } from "../hooks/useSketch";
 import { isAiConnected } from "../services/diaryAnalysis";
 import type { DiaryAnalysis } from "../services/diaryAnalysis";
+import { buildDiaryTags } from "../utils/diaryImage";
 import { buildHighlightSegments } from "../utils/highlight";
 
 interface PreviewStepProps {
@@ -92,18 +93,9 @@ export function PreviewStep({
         : sketchState.status === "error"
           ? "그림 변환에 실패해서 원본 사진이 보여요"
           : "";
-  // Emotions first — they make the most evocative tags; Set dedupes overlap
-  // between photo and diary keywords.
-  const tags =
-    analysis === null
-      ? []
-      : [
-          ...new Set([
-            ...analysis.emotions,
-            ...analysis.photoKeywords,
-            ...analysis.diaryKeywords,
-          ]),
-        ].slice(0, 6);
+  // Shared with the saved-image renderer so the preview and the exported
+  // diary always show the same tags.
+  const tags = analysis === null ? [] : buildDiaryTags(analysis);
 
   return (
     <div className="step-body">
