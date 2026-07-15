@@ -5,6 +5,13 @@ import type { WeatherValue } from "../constants/diary";
 
 export interface DiaryDraft {
   photoDataUrl: string | null;
+  /**
+   * Stage-3 colored-pencil drawing made from photoDataUrl. Lives in the draft
+   * (not in the hook that produces it) so it persists across app restarts —
+   * each conversion is a paid API call worth keeping. Must be cleared
+   * whenever photoDataUrl changes; App.tsx does that in onPhotoChange.
+   */
+  sketchDataUrl: string | null;
   title: string;
   content: string;
   /** Local date in YYYY-MM-DD, matching what <input type="date"> uses. */
@@ -24,6 +31,7 @@ function todayString(): string {
 function emptyDraft(): DiaryDraft {
   return {
     photoDataUrl: null,
+    sketchDataUrl: null,
     title: "",
     content: "",
     date: todayString(),
@@ -46,10 +54,17 @@ function loadDraft(): DiaryDraft {
       return emptyDraft();
     }
     const candidate = parsed as Partial<DiaryDraft>;
+    const photoDataUrl =
+      typeof candidate.photoDataUrl === "string"
+        ? candidate.photoDataUrl
+        : null;
     return {
-      photoDataUrl:
-        typeof candidate.photoDataUrl === "string"
-          ? candidate.photoDataUrl
+      photoDataUrl,
+      // A sketch is only meaningful for the photo it was drawn from — if the
+      // stored draft has no photo, a leftover sketch must not survive either.
+      sketchDataUrl:
+        photoDataUrl !== null && typeof candidate.sketchDataUrl === "string"
+          ? candidate.sketchDataUrl
           : null,
       title: typeof candidate.title === "string" ? candidate.title : "",
       content: typeof candidate.content === "string" ? candidate.content : "",
@@ -69,6 +84,29 @@ function loadDraft(): DiaryDraft {
 
 const SAVE_DEBOUNCE_MS = 400;
 
+// Saves the draft, degrading gracefully when localStorage is full: the image
+// data URLs are dropped first — they are re-creatable (photo can be re-picked,
+// sketch re-converted), while typed text is not. Without this, one oversized
+// photo+sketch pair would make EVERY later save throw quota errors silently,
+// killing 임시저장 for the text too with zero user signal.
+function persistDraft(draft: DiaryDraft) {
+  const attempts: DiaryDraft[] = [
+    draft,
+    { ...draft, sketchDataUrl: null },
+    { ...draft, photoDataUrl: null, sketchDataUrl: null },
+  ];
+  for (const candidate of attempts) {
+    try {
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(candidate));
+      return;
+    } catch {
+      // Quota exceeded — retry with the next, smaller shape.
+    }
+  }
+  // Even the text-only draft failed (storage disabled or full of other data);
+  // nothing further to do — saving must never break the UI.
+}
+
 /**
  * Keeps the in-progress diary in state and mirrors it to localStorage,
  * which implements the spec's "임시 저장" without needing a backend.
@@ -87,14 +125,7 @@ export function useDiaryDraft() {
     // The debounce below can drop the last ~400ms of typing if the WebView is
     // killed right away; flushing when the page hides closes that gap.
     const flush = () => {
-      try {
-        localStorage.setItem(
-          DRAFT_STORAGE_KEY,
-          JSON.stringify(draftRef.current),
-        );
-      } catch {
-        // Best effort only — never surface storage errors to the user.
-      }
+      persistDraft(draftRef.current);
     };
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
@@ -113,11 +144,7 @@ export function useDiaryDraft() {
     // Debounced save: serializing the photo data URL on every keystroke
     // would do megabytes of JSON work per character typed.
     const timer = setTimeout(() => {
-      try {
-        localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
-      } catch {
-        // Quota errors must never break typing; the draft simply isn't persisted.
-      }
+      persistDraft(draft);
     }, SAVE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [draft]);

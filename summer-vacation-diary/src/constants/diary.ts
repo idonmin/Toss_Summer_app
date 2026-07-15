@@ -18,6 +18,15 @@ export function weatherLabel(value: WeatherValue): string {
   );
 }
 
+/** "2026-07-15" → "2026년 7월 15일" — shared by the preview and the saved image. */
+export function formatKoreanDate(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
+  if (!year || !month || !day) {
+    return date;
+  }
+  return `${year}년 ${month}월 ${day}일`;
+}
+
 export const TITLE_MAX_LENGTH = 30;
 export const CONTENT_MIN_LENGTH = 20;
 export const CONTENT_MAX_LENGTH = 500;

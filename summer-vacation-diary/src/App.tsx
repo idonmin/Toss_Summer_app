@@ -8,6 +8,7 @@ import { WriteStep } from "./components/WriteStep";
 import { CONTENT_MIN_LENGTH } from "./constants/diary";
 import { useDiaryAnalysis } from "./hooks/useDiaryAnalysis";
 import { useDiaryDraft } from "./hooks/useDiaryDraft";
+import { useSketch } from "./hooks/useSketch";
 
 // Plain state instead of a router: the flow is a strict 3-step wizard with no
 // deep links yet, so a router would add dependency weight without benefit.
@@ -37,6 +38,14 @@ function App() {
   const { state: analysisState, retry: retryAnalysis } = useDiaryAnalysis(
     draft,
     step === "preview",
+  );
+  // The drawing conversion starts when the user commits to writing (leaves
+  // the upload step): its 30-60s latency then overlaps with typing time, and
+  // an abandoned photo pick never spends an API call.
+  const { state: sketchState, retry: retrySketch } = useSketch(
+    draft,
+    updateDraft,
+    step !== "upload",
   );
   const { openConfirm } = useDialog();
 
@@ -81,7 +90,12 @@ function App() {
       {step === "upload" && (
         <PhotoUploadStep
           photoDataUrl={draft.photoDataUrl}
-          onPhotoChange={(dataUrl) => updateDraft({ photoDataUrl: dataUrl })}
+          onPhotoChange={(dataUrl) =>
+            // A sketch belongs to exactly one photo — replacing the photo
+            // must drop the old drawing in the same state update, or the
+            // preview could pair the new photo with the previous sketch.
+            updateDraft({ photoDataUrl: dataUrl, sketchDataUrl: null })
+          }
         />
       )}
       {step === "write" && <WriteStep draft={draft} onChange={updateDraft} />}
@@ -90,6 +104,8 @@ function App() {
           draft={draft}
           analysisState={analysisState}
           onRetry={retryAnalysis}
+          sketchState={sketchState}
+          onSketchRetry={retrySketch}
         />
       )}
 

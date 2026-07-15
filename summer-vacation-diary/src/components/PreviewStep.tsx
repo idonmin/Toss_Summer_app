@@ -1,8 +1,10 @@
 import { Button, Loader, Paragraph } from "@toss/tds-mobile";
+import { useState } from "react";
 
-import { weatherLabel } from "../constants/diary";
+import { formatKoreanDate, weatherLabel } from "../constants/diary";
 import type { AnalysisState } from "../hooks/useDiaryAnalysis";
 import type { DiaryDraft } from "../hooks/useDiaryDraft";
+import type { SketchState } from "../hooks/useSketch";
 import { isAiConnected } from "../services/diaryAnalysis";
 import type { DiaryAnalysis } from "../services/diaryAnalysis";
 import { buildHighlightSegments } from "../utils/highlight";
@@ -11,15 +13,8 @@ interface PreviewStepProps {
   draft: DiaryDraft;
   analysisState: AnalysisState;
   onRetry: () => void;
-}
-
-// "2026-07-13" → "2026년 7월 13일" for the diary header.
-function formatKoreanDate(date: string): string {
-  const [year, month, day] = date.split("-").map(Number);
-  if (!year || !month || !day) {
-    return date;
-  }
-  return `${year}년 ${month}월 ${day}일`;
+  sketchState: SketchState;
+  onSketchRetry: () => void;
 }
 
 // Renders the diary text with 첨삭 marks. <mark> (not a styled <span>) so
@@ -64,15 +59,39 @@ function HighlightedContent({
  * Step 3: the diary card laid out per the spec's 기본 구성
  * (date/weather → photo → title → content → one-line comment).
  * Stage 2 fills the comment area with the real analysis result (comment +
- * tags + highlight marks); stage 3 will swap the photo for the drawing.
+ * tags + highlight marks); stage 3 swaps the photo for the pencil drawing,
+ * with the original photo as the fallback while converting / on failure
+ * (spec: "원본 사진으로 그림일기를 만들거나 다시 시도할 수 있습니다").
  */
 export function PreviewStep({
   draft,
   analysisState,
   onRetry,
+  sketchState,
+  onSketchRetry,
 }: PreviewStepProps) {
   const analysis =
     analysisState.status === "success" ? analysisState.analysis : null;
+
+  // Before/after toggle: seeing their own photo become the drawing is the
+  // product's wow moment, so comparing must be one tap, not a re-upload.
+  const [showOriginal, setShowOriginal] = useState(false);
+  const sketchUrl =
+    sketchState.status === "success" ? sketchState.sketchDataUrl : null;
+  const showsSketch = sketchUrl !== null && !showOriginal;
+
+  // Announced through the always-mounted live region below. A region that
+  // mounts together with its text is often not read at all — only TEXT
+  // CHANGES inside an existing region are reliably announced, which is
+  // exactly what happens when loading flips to success mid-visit.
+  const sketchAnnouncement =
+    sketchState.status === "loading"
+      ? "사진을 색연필 그림으로 바꾸고 있어요"
+      : sketchState.status === "success"
+        ? "색연필 그림이 완성됐어요"
+        : sketchState.status === "error"
+          ? "그림 변환에 실패해서 원본 사진이 보여요"
+          : "";
   // Emotions first — they make the most evocative tags; Set dedupes overlap
   // between photo and diary keywords.
   const tags =
@@ -88,6 +107,10 @@ export function PreviewStep({
 
   return (
     <div className="step-body">
+      <p className="visually-hidden" role="status">
+        {sketchAnnouncement}
+      </p>
+
       <div className="diary-card">
         <div className="diary-card-header">
           <span>{formatKoreanDate(draft.date)}</span>
@@ -96,11 +119,61 @@ export function PreviewStep({
 
         <div className="diary-card-photo">
           {draft.photoDataUrl !== null ? (
-            <img src={draft.photoDataUrl} alt="일기 사진" />
+            <>
+              <img
+                src={showsSketch ? sketchUrl : draft.photoDataUrl}
+                alt={showsSketch ? "색연필 그림으로 바뀐 일기 사진" : "일기 사진"}
+              />
+              {sketchState.status === "loading" && (
+                // aria-hidden: the persistent live region at the top of this
+                // component already announces the conversion; reading this
+                // overlay too would announce it twice.
+                <div className="sketch-overlay" aria-hidden>
+                  <Loader size="small" />
+                  <span>사진을 색연필 그림으로 바꾸고 있어요</span>
+                </div>
+              )}
+              {sketchUrl !== null && (
+                <button
+                  type="button"
+                  className="sketch-toggle"
+                  onClick={() => setShowOriginal((value) => !value)}
+                >
+                  {showOriginal ? "그림 보기" : "원본 사진 보기"}
+                </button>
+              )}
+            </>
           ) : (
             <div className="diary-card-photo-empty">사진이 없어요</div>
           )}
         </div>
+
+        {sketchState.status === "error" && (
+          // #6b5e3f (not the lighter paper tones): 13px text needs ≥4.5:1
+          // contrast on the #fbf7e8 background to stay readable (WCAG AA).
+          <div className="sketch-error">
+            <Paragraph typography="t7" color="#6b5e3f">
+              {sketchState.message}
+            </Paragraph>
+            <div className="sketch-error-actions">
+              <Paragraph as="span" typography="t7" color="#6b5e3f">
+                원본 사진으로도 완성할 수 있어요
+              </Paragraph>
+              {/* No retry for moderation rejections: the same photo would be
+                  rejected again, contradicting the "다른 사진으로" guidance. */}
+              {sketchState.retryable && (
+                <Button
+                  size="small"
+                  variant="weak"
+                  color="dark"
+                  onClick={onSketchRetry}
+                >
+                  다시 시도
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="diary-card-title">
           {draft.title !== "" ? draft.title : "제목 없는 일기"}
@@ -156,16 +229,17 @@ export function PreviewStep({
                   ))}
                 </div>
               )}
-              {!isAiConnected && (
-                <Paragraph
-                  typography="t7"
-                  color="#b0a988"
-                  style={{ marginTop: 8 }}
-                >
-                  체험 모드 · 아직 분석 서버와 연결되지 않아 예시 결과가 보여요
-                </Paragraph>
-              )}
             </>
+          )}
+
+          {/* Outside the analysis-success branch on purpose: keyless users
+              see the mock drawing even while the analysis is loading or has
+              failed, and it must never pass for the real AI conversion. */}
+          {!isAiConnected && (
+            <Paragraph typography="t7" color="#6b5e3f" style={{ marginTop: 8 }}>
+              체험 모드 · AI와 연결되지 않아 예시 분석과 간단한 그림 효과가
+              보여요
+            </Paragraph>
           )}
         </div>
       </div>

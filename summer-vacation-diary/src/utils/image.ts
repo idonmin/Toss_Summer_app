@@ -49,6 +49,39 @@ export function validateImageFile(file: File): ImageErrorCode | null {
   return null;
 }
 
+// Shared canvas pass: downscale to MAX_DIMENSION_PX and re-encode as JPEG.
+// Used by the upload path below and by recompressDataUrl for stage-3 sketches,
+// so both kinds of image obey the same size budget.
+function encodeToJpeg(image: HTMLImageElement): ProcessedImage {
+  const scale = Math.min(
+    1,
+    MAX_DIMENSION_PX / Math.max(image.naturalWidth, image.naturalHeight),
+  );
+  const width = Math.max(1, Math.round(image.naturalWidth * scale));
+  const height = Math.max(1, Math.round(image.naturalHeight * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  if (!context) {
+    throw new ImageProcessError("load-failed");
+  }
+  // JPEG has no alpha channel, and an untouched canvas is transparent
+  // black — without this fill, transparent PNG areas would turn black.
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.drawImage(image, 0, 0, width, height);
+
+  // Re-encode as JPEG regardless of the source format: photos rarely need
+  // transparency, and JPEG keeps the data URL roughly 5-10x smaller than PNG.
+  return {
+    dataUrl: canvas.toDataURL("image/jpeg", JPEG_QUALITY),
+    width,
+    height,
+  };
+}
+
 export function processImageFile(file: File): Promise<ProcessedImage> {
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
@@ -65,34 +98,11 @@ export function processImageFile(file: File): Promise<ProcessedImage> {
         return;
       }
 
-      const scale = Math.min(
-        1,
-        MAX_DIMENSION_PX / Math.max(image.naturalWidth, image.naturalHeight),
-      );
-      const width = Math.round(image.naturalWidth * scale);
-      const height = Math.round(image.naturalHeight * scale);
-
-      const canvas = document.createElement("canvas");
-      canvas.width = width;
-      canvas.height = height;
-      const context = canvas.getContext("2d");
-      if (!context) {
-        reject(new ImageProcessError("load-failed"));
-        return;
+      try {
+        resolve(encodeToJpeg(image));
+      } catch (error) {
+        reject(error);
       }
-      // JPEG has no alpha channel, and an untouched canvas is transparent
-      // black — without this fill, transparent PNG areas would turn black.
-      context.fillStyle = "#ffffff";
-      context.fillRect(0, 0, width, height);
-      context.drawImage(image, 0, 0, width, height);
-
-      // Re-encode as JPEG regardless of the source format: photos rarely need
-      // transparency, and JPEG keeps the data URL roughly 5-10x smaller than PNG.
-      resolve({
-        dataUrl: canvas.toDataURL("image/jpeg", JPEG_QUALITY),
-        width,
-        height,
-      });
     };
 
     image.onerror = () => {
@@ -102,4 +112,28 @@ export function processImageFile(file: File): Promise<ProcessedImage> {
 
     image.src = objectUrl;
   });
+}
+
+/**
+ * Loads an existing data URL back into an <img> element, so canvas utilities
+ * (recompression below, the mock pencil filter) share one loading path.
+ */
+export function loadImageFromDataUrl(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new ImageProcessError("load-failed"));
+    image.src = dataUrl;
+  });
+}
+
+/**
+ * Re-encodes any image data URL as a ≤MAX_DIMENSION_PX JPEG.
+ * The style-conversion API returns images up to 1536px as base64 (2-3MB as
+ * PNG); without this step a single sketch could blow the ~5MB localStorage
+ * quota the draft lives in.
+ */
+export async function recompressDataUrl(dataUrl: string): Promise<string> {
+  const image = await loadImageFromDataUrl(dataUrl);
+  return encodeToJpeg(image).dataUrl;
 }
