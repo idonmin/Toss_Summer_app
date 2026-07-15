@@ -4,14 +4,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "granite dev",
-    "build": "ait build",
+    "dev": "vite dev",
+    "build": "vite build && ait build",
     "deploy": "ait deploy",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
   "dependencies": {
-    "@apps-in-toss/web-framework": "^2.10.5",
+    "@apps-in-toss/web-framework": "^3.0.0-beta.b36d7b5",
     "@emotion/react": "^11.0.0",
     "@toss/tds-colors": "latest",
     "@toss/tds-mobile": "latest",
