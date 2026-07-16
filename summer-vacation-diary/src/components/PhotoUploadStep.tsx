@@ -89,6 +89,15 @@ export function PhotoUploadStep({
           >
             다른 사진 선택하기
           </Button>
+          {/* The conversion itself starts on the next step (see useSketch),
+              so tell the user here what will happen to their photo. */}
+          <Paragraph
+            typography="t7"
+            color={colors.grey600}
+            style={{ textAlign: "center" }}
+          >
+            다음 단계로 가면 사진이 색연필 그림으로 바뀌어요 ✏️
+          </Paragraph>
         </div>
       ) : (
         <button
