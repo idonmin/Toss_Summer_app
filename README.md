@@ -1,4 +1,2 @@
-# Toss_Summer_app
+# Summer_Vacation_Diary
 about app in toss vibecoding challenge
-
-깽판치고 갑니다 ㅎㅇ
