@@ -267,6 +267,12 @@ html {
   overflow: hidden;
 }
 
+/* position: relative anchors the stage-3 conversion overlay and the
+   original/drawing toggle chip to the photo area. */
+.diary-card-photo {
+  position: relative;
+}
+
 .diary-card-photo img {
   display: block;
   width: 100%;
