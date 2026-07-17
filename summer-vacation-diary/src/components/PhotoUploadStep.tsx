@@ -2,6 +2,8 @@ import { Button, Paragraph, useToast } from "@toss/tds-mobile";
 import { colors } from "@toss/tds-colors";
 import { useRef, useState } from "react";
 
+import familyDiaryPlaceholder from "../assets/family-diary-placeholder.jpg";
+
 import { ALLOWED_IMAGE_TYPES } from "../constants/diary";
 import {
   IMAGE_ERROR_MESSAGES,
@@ -106,9 +108,16 @@ export function PhotoUploadStep({
           onClick={openPicker}
           disabled={processing}
         >
-          <span className="photo-placeholder-emoji" aria-hidden>
-            📷
-          </span>
+          <img
+            className="photo-placeholder-image"
+            src={familyDiaryPlaceholder}
+            alt=""
+            aria-hidden
+          />
+          <span className="photo-placeholder-copy">
+            <span className="photo-placeholder-emoji" aria-hidden>
+              📷
+            </span>
           {/* Fixed colors pair with the fixed light placeholder background.
               Note: @toss/tds-mobile-ait currently pins colorPreference to
               "light", so adaptive.* tokens never change today — if a future
@@ -126,6 +135,7 @@ export function PhotoUploadStep({
           <Paragraph as="span" typography="t7" color={colors.grey600}>
             JPG · PNG · WEBP, 10MB 이하 사진 1장
           </Paragraph>
+          </span>
         </button>
       )}
 

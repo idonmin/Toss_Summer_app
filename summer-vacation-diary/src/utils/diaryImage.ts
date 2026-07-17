@@ -1,4 +1,4 @@
-import { formatKoreanDate, weatherLabel } from "../constants/diary";
+import { weatherLabel } from "../constants/diary";
 import type { WeatherValue } from "../constants/diary";
 import type { DiaryAnalysis } from "../services/diaryAnalysis";
 import { buildHighlightSegments } from "./highlight";
@@ -32,10 +32,7 @@ export interface DiaryImageInput {
 }
 
 // 1080px wide: crisp on phone screens and standard for photo albums / SNS.
-const WIDTH = 1080;
-const BORDER_INSET = 14;
-const BORDER_WIDTH = 4;
-const BORDER_RADIUS = 28;
+const WIDTH = 1058;
 const TEXT_X = 64;
 const TEXT_WIDTH = WIDTH - TEXT_X * 2;
 
@@ -43,28 +40,30 @@ const TEXT_WIDTH = WIDTH - TEXT_X * 2;
 // sticking to system fonts guarantees the export never renders tofu boxes.
 const FONT_STACK =
   '-apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif';
-const HEADER_FONT = `500 30px ${FONT_STACK}`;
-const TITLE_FONT = `700 44px ${FONT_STACK}`;
+const TITLE_FONT = `700 36px ${FONT_STACK}`;
 const CONTENT_FONT = `400 32px ${FONT_STACK}`;
-const COMMENT_FONT = `500 30px ${FONT_STACK}`;
-const TAG_FONT = `400 24px ${FONT_STACK}`;
-const FOOTER_FONT = `400 22px ${FONT_STACK}`;
+const COMMENT_FONT = `500 24px ${FONT_STACK}`;
+const TAG_FONT = `400 18px ${FONT_STACK}`;
 
-const COMMENT_LINE_HEIGHT = 46;
-const TAG_HEIGHT = 44;
-const TAG_GAP = 12;
+const COMMENT_LINE_HEIGHT = 32;
+const TAG_HEIGHT = 30;
+const TAG_GAP = 6;
 
 // Same paper palette as the preview card in App.css.
-const PAPER = "#fffdf5";
-const BORDER_COLOR = "#d8c9a3";
-const SEPARATOR = "#e7dcbd";
-const TITLE_COLOR = "#40371f";
 const TEXT_COLOR = "#4c432a";
 const MUTED = "#6b5e3f";
-const FAINT = "#b0a988";
 const MARK_COLOR = "rgba(224, 82, 60, 0.7)";
-const COMMENT_BG = "#fbf7e8";
 const TAG_BG = "#f3ecd2";
+const FRAME_HEIGHT = 1487;
+
+function loadFrameImage(): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const frame = new Image();
+    frame.onload = () => resolve(frame);
+    frame.onerror = () => reject(new ImageProcessError("load-failed"));
+    frame.src = "/picture-diary-frame.png";
+  });
+}
 
 interface Run {
   text: string;
@@ -159,28 +158,6 @@ function layoutSegments(
   return lines;
 }
 
-// Hand-drawn circle: a slightly rotated ellipse reads as pencil, not as a UI
-// chip — mirrors .highlight-circle's irregular border-radius in the preview.
-function drawCircleMark(
-  context: CanvasRenderingContext2D,
-  x: number,
-  baselineY: number,
-  width: number,
-  fontSize: number,
-) {
-  context.save();
-  context.strokeStyle = MARK_COLOR;
-  context.lineWidth = 3.5;
-  const centerX = x + width / 2;
-  const centerY = baselineY - fontSize * 0.34;
-  context.translate(centerX, centerY);
-  context.rotate(-0.03);
-  context.beginPath();
-  context.ellipse(0, 0, width / 2 + 12, fontSize * 0.74, 0, 0, Math.PI * 2);
-  context.stroke();
-  context.restore();
-}
-
 function drawWavyUnderline(
   context: CanvasRenderingContext2D,
   x: number,
@@ -212,13 +189,14 @@ function drawWavyUnderline(
 
 /** Emotions first, deduped — must match the preview's tag logic. */
 export function buildDiaryTags(analysis: DiaryAnalysis): string[] {
-  return [
+  const tags = [
     ...new Set([
       ...analysis.emotions,
       ...analysis.photoKeywords,
       ...analysis.diaryKeywords,
     ]),
   ].slice(0, 6);
+  return tags.length > 0 ? tags : ["그림일기", "여름방학"];
 }
 
 interface TagBox {
@@ -239,7 +217,7 @@ function layoutTags(
   let x = 0;
   let row = 0;
   for (const tag of tags) {
-    const width = context.measureText(`#${tag}`).width + 36;
+    const width = context.measureText(`#${tag}`).width + 24;
     if (x + width > maxWidth && x > 0) {
       row += 1;
       x = 0;
@@ -258,7 +236,10 @@ function layoutTags(
 export async function composeDiaryImage(
   input: DiaryImageInput,
 ): Promise<string> {
-  const image = await loadImageFromDataUrl(input.imageDataUrl);
+  const [image, frame] = await Promise.all([
+    loadImageFromDataUrl(input.imageDataUrl),
+    loadFrameImage(),
+  ]);
 
   const canvas = document.createElement("canvas");
   const context = canvas.getContext("2d");
@@ -276,7 +257,8 @@ export async function composeDiaryImage(
           input.analysis.highlightSentence,
         )
       : [{ text: input.content, mark: null }];
-  const columnCount = 12;
+  const columnCount = 11;
+  const rowCount = 5;
   const cells: Array<{
     text: string;
     mark: "circle" | "underline" | null;
@@ -293,7 +275,7 @@ export async function composeDiaryImage(
     }
   }
   const visibleCellCount = Math.max(
-    columnCount * 6,
+    columnCount * rowCount,
     Math.ceil(cells.length / columnCount) * columnCount,
   );
   while (cells.length < visibleCellCount) {
@@ -312,38 +294,16 @@ export async function composeDiaryImage(
   const tags = input.analysis !== null ? buildDiaryTags(input.analysis) : [];
   const tagLayout = layoutTags(context, tags, TEXT_WIDTH);
 
-  // Fill the available width and grow the picture box to the image's natural
-  // aspect ratio. Nothing is cropped and no letterbox whitespace is added.
-  const contentInset = 48;
-  const contentWidth = WIDTH - contentInset * 2;
-  const imageAreaWidth = contentWidth;
-  const imageAreaHeight = Math.round(
-    imageAreaWidth * (image.naturalHeight / image.naturalWidth),
-  );
-
-  const spiralHeight = 72;
-  const headingHeight = 100;
-  const metaHeight = 78;
-  const titleBlockHeight = 82;
-  const cellSize = contentWidth / columnCount;
-  const contentBlockHeight = (cells.length / columnCount) * cellSize;
+  const contentInset = 40;
   const commentBlockHeight =
     input.analysis !== null
-      ? 30 +
+      ? 18 +
         commentLines.length * COMMENT_LINE_HEIGHT +
-        (tagLayout.rows > 0 ? 14 + tagLayout.rows * (TAG_HEIGHT + TAG_GAP) : 0) +
-        18
+        (tagLayout.rows > 0 ? 8 + tagLayout.rows * (TAG_HEIGHT + TAG_GAP) : 0) +
+        10
       : 0;
-  const footerHeight = 58;
-
   canvas.width = WIDTH;
-  canvas.height =
-    BORDER_INSET * 2 + spiralHeight + headingHeight + metaHeight +
-    titleBlockHeight +
-    imageAreaHeight + 18 +
-    contentBlockHeight +
-    commentBlockHeight + 28 +
-    footerHeight;
+  canvas.height = FRAME_HEIGHT;
 
   // --- Draw pass (sizing the canvas reset all context state) ---------------
 
@@ -351,134 +311,144 @@ export async function composeDiaryImage(
   context.imageSmoothingQuality = "high";
   context.textBaseline = "alphabetic";
 
-  context.fillStyle = PAPER;
+  context.fillStyle = "#ffffff";
   context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(frame, 0, 0, WIDTH, FRAME_HEIGHT);
 
-  let y = BORDER_INSET;
-
-  // Black wire loops across the top, matching the preview notebook frame.
-  context.strokeStyle = "#292929";
-  context.lineWidth = 8;
-  for (let index = 0; index < 12; index++) {
-    const x = 65 + index * ((WIDTH - 130) / 11);
-    context.beginPath();
-    context.ellipse(x, y + 31, 10, 30, 0, 0, Math.PI * 2);
-    context.stroke();
-  }
-  y += spiralHeight;
-
-  context.font = `800 52px ${FONT_STACK}`;
-  context.fillStyle = "#292929";
+  // Values are placed into the blanks already printed on the supplied frame.
+  const [year = "", month = "", day = ""] = input.date.split("-");
+  const date = new Date(`${input.date}T00:00:00`);
+  const weekday = Number.isNaN(date.getTime())
+    ? ""
+    : new Intl.DateTimeFormat("ko-KR", { weekday: "short" }).format(date);
+  context.font = `600 24px ${FONT_STACK}`;
+  context.fillStyle = "#333333";
   context.textAlign = "center";
-  context.fillText("그 림 일 기", WIDTH / 2, y + 66);
-  y += headingHeight;
+  context.fillText(year, 109, 218);
+  context.fillText(String(Number(month)), 210, 218);
+  context.fillText(String(Number(day)), 310, 218);
+  context.fillText(weekday, 410, 218);
+  context.fillText(weatherLabel(input.weather), 865, 218);
 
-  context.strokeStyle = "#bfc0bd";
-  context.lineWidth = 2;
-  context.beginPath();
-  context.moveTo(BORDER_INSET, y);
-  context.lineTo(WIDTH - BORDER_INSET, y);
-  context.stroke();
-
-  context.font = HEADER_FONT;
-  context.fillStyle = MUTED;
-  context.textAlign = "left";
-  context.fillText(formatKoreanDate(input.date), contentInset, y + 50);
-  const weatherText = `날씨 : ${weatherLabel(input.weather)}`;
-  context.textAlign = "right";
-  context.fillText(weatherText, WIDTH - contentInset, y + 50);
-  y += metaHeight;
-
-  context.beginPath();
-  context.moveTo(BORDER_INSET, y);
-  context.lineTo(WIDTH - BORDER_INSET, y);
-  context.stroke();
-
-  context.textAlign = "left";
-  context.font = HEADER_FONT;
-  context.fillStyle = MUTED;
-  context.fillText("제목 :", contentInset, y + 53);
   context.font = TITLE_FONT;
-  context.fillStyle = TITLE_COLOR;
-  context.fillText(input.title, contentInset + 105, y + 56, contentWidth - 105);
-  y += titleBlockHeight;
+  context.textAlign = "left";
+  context.fillText(input.title, 129, 292, 820);
 
+  // Fill the complete printed photo box. The centered crop mirrors
+  // object-fit: cover in the on-screen preview, so preview and export match.
+  const imageX = 50;
+  const imageY = 317;
+  const imageWidth = 956;
+  const imageHeight = 543;
+  const scale = Math.max(
+    imageWidth / image.naturalWidth,
+    imageHeight / image.naturalHeight,
+  );
+  const drawWidth = image.naturalWidth * scale;
+  const drawHeight = image.naturalHeight * scale;
+  context.save();
   context.beginPath();
-  context.moveTo(BORDER_INSET, y);
-  context.lineTo(WIDTH - BORDER_INSET, y);
-  context.stroke();
-
-  // Draw the complete source image into the ratio-matched box.
-  const imageX = contentInset;
+  context.rect(imageX, imageY, imageWidth, imageHeight);
+  context.clip();
   context.drawImage(
     image,
-    imageX,
-    y,
-    imageAreaWidth,
-    imageAreaHeight,
+    imageX + (imageWidth - drawWidth) / 2,
+    imageY + (imageHeight - drawHeight) / 2,
+    drawWidth,
+    drawHeight,
   );
-  context.strokeStyle = BORDER_COLOR;
-  context.lineWidth = 2;
-  context.strokeRect(imageX, y, imageAreaWidth, imageAreaHeight);
-  y += imageAreaHeight;
-  y += 18;
+  context.restore();
 
-  // One character per square, matching PreviewStep's 12-column manuscript.
+  // The supplied manuscript area is a fixed 11-column, five-row grid.
+  const gridX = 50;
+  const gridY = 880;
+  const cellWidth = 956 / columnCount;
+  const cellHeight = 344 / rowCount;
   context.font = CONTENT_FONT;
   context.textAlign = "center";
   context.textBaseline = "middle";
-  cells.forEach((cell, index) => {
+  cells.slice(0, columnCount * rowCount).forEach((cell, index) => {
     const column = index % columnCount;
     const row = Math.floor(index / columnCount);
-    const cellX = contentInset + column * cellSize;
-    const cellY = y + row * cellSize;
-    context.strokeStyle = "#c7c8c5";
-    context.lineWidth = 2;
-    context.strokeRect(cellX, cellY, cellSize, cellSize);
+    const cellX = gridX + column * cellWidth;
+    const cellY = gridY + row * cellHeight;
     context.fillStyle = TEXT_COLOR;
-    context.fillText(cell.text, cellX + cellSize / 2, cellY + cellSize / 2 + 2);
-    if (cell.mark === "circle") {
-      drawCircleMark(
-        context,
-        cellX + cellSize * 0.2,
-        cellY + cellSize * 0.72,
-        cellSize * 0.6,
-        32,
+    context.fillText(cell.text, cellX + cellWidth / 2, cellY + cellHeight / 2 + 2);
+  });
+
+  // Correction strokes live on a separate coordinate layer. Consecutive
+  // marked characters on the same row become one loose teacher-pencil mark,
+  // so the stroke can cross cell borders without changing the grid layout.
+  const correctionRuns: Array<{
+    mark: "circle" | "underline";
+    row: number;
+    startColumn: number;
+    length: number;
+  }> = [];
+  cells.slice(0, columnCount * rowCount).forEach((cell, index) => {
+    if (cell.mark === null) {
+      return;
+    }
+    const row = Math.floor(index / columnCount);
+    const column = index % columnCount;
+    const previous = correctionRuns.at(-1);
+    if (
+      previous !== undefined &&
+      previous.mark === cell.mark &&
+      previous.row === row &&
+      previous.startColumn + previous.length === column
+    ) {
+      previous.length += 1;
+    } else {
+      correctionRuns.push({
+        mark: cell.mark,
+        row,
+        startColumn: column,
+        length: 1,
+      });
+    }
+  });
+  correctionRuns.forEach((run) => {
+    const x = gridX + run.startColumn * cellWidth;
+    const rowY = gridY + run.row * cellHeight;
+    const width = run.length * cellWidth;
+    if (run.mark === "circle") {
+      context.save();
+      context.strokeStyle = MARK_COLOR;
+      context.lineWidth = 4;
+      context.translate(x + width / 2, rowY + cellHeight / 2);
+      context.rotate(-0.025);
+      context.beginPath();
+      context.ellipse(
+        0,
+        0,
+        width / 2 + 9,
+        cellHeight * 0.4,
+        0,
+        0,
+        Math.PI * 2,
       );
-    } else if (cell.mark === "underline") {
+      context.stroke();
+      context.restore();
+    } else {
       drawWavyUnderline(
         context,
-        cellX + cellSize * 0.2,
-        cellY + cellSize * 0.72,
-        cellSize * 0.6,
+        x - 5,
+        rowY + cellHeight * 0.78,
+        width + 10,
       );
     }
   });
-  y += contentBlockHeight;
+  let y = 1247;
   context.textBaseline = "alphabetic";
   context.textAlign = "left";
 
   // Teacher comment + tags on the tinted strip, like the preview card.
   if (input.analysis !== null) {
-    context.fillStyle = COMMENT_BG;
-    context.fillRect(
-      contentInset,
-      y + 14,
-      contentWidth,
-      commentBlockHeight,
-    );
-
-    context.save();
-    context.strokeStyle = SEPARATOR;
-    context.lineWidth = 2;
-    context.setLineDash([10, 8]);
-    context.beginPath();
-    context.moveTo(contentInset, y + 14);
-    context.lineTo(WIDTH - contentInset, y + 14);
-    context.stroke();
-    context.restore();
-
-    let commentY = y + 44;
+    context.font = `700 22px ${FONT_STACK}`;
+    context.fillStyle = MUTED;
+    context.fillText("선생님 한줄평", contentInset + 14, y + 30);
+    let commentY = y + 38;
     context.font = COMMENT_FONT;
     context.fillStyle = MUTED;
     commentLines.forEach((line, index) => {
@@ -491,7 +461,7 @@ export async function composeDiaryImage(
     commentY += commentLines.length * COMMENT_LINE_HEIGHT;
 
     if (tagLayout.rows > 0) {
-      commentY += 14;
+      commentY += 8;
       context.font = TAG_FONT;
       for (const box of tagLayout.boxes) {
         const boxY = commentY + box.y * (TAG_HEIGHT + TAG_GAP);
@@ -499,35 +469,11 @@ export async function composeDiaryImage(
         roundRectPath(context, TEXT_X + box.x, boxY, box.width, TAG_HEIGHT, 18);
         context.fill();
         context.fillStyle = MUTED;
-        context.fillText(box.text, TEXT_X + box.x + 18, boxY + 31);
+        context.fillText(box.text, TEXT_X + box.x + 12, boxY + 22);
       }
     }
     y += commentBlockHeight + 14;
   }
-
-  // Footer watermark.
-  context.font = FOOTER_FONT;
-  context.fillStyle = FAINT;
-  const footerText = "나의 여름방학일기 ✏️";
-  const footerWidth = context.measureText(footerText).width;
-  context.fillText(
-    footerText,
-    WIDTH - TEXT_X - footerWidth,
-    y + footerHeight - 22,
-  );
-
-  // Outer border last, so it sits cleanly on top of full-bleed blocks.
-  context.strokeStyle = BORDER_COLOR;
-  context.lineWidth = BORDER_WIDTH;
-  roundRectPath(
-    context,
-    BORDER_INSET,
-    BORDER_INSET,
-    WIDTH - BORDER_INSET * 2,
-    canvas.height - BORDER_INSET * 2,
-    BORDER_RADIUS,
-  );
-  context.stroke();
 
   // 0.92: text and thin marks need higher quality than photos to avoid
   // visible JPEG ringing around glyph edges.

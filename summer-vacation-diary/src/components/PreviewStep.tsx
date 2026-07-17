@@ -27,7 +27,8 @@ function HighlightedContent({
   content: string;
   analysis: DiaryAnalysis | null;
 }) {
-  const columnCount = 12;
+  const columnCount = 11;
+  const rowCount = 5;
   const segments =
     analysis === null
       ? [{ text: content, mark: null }]
@@ -53,36 +54,66 @@ function HighlightedContent({
     }
   }
 
-  // Keep six full rows visible even for short entries, like a paper diary.
+  // Fill the five manuscript rows printed on the supplied diary frame.
   const visibleCellCount = Math.max(
-    columnCount * 6,
+    columnCount * rowCount,
     Math.ceil(cells.length / columnCount) * columnCount,
   );
   while (cells.length < visibleCellCount) {
     cells.push({ text: "", mark: null });
   }
 
+  const correctionRuns: Array<{
+    mark: "circle" | "underline";
+    row: number;
+    startColumn: number;
+    length: number;
+  }> = [];
+  cells.slice(0, columnCount * rowCount).forEach((cell, index) => {
+    if (cell.mark === null) {
+      return;
+    }
+    const row = Math.floor(index / columnCount);
+    const column = index % columnCount;
+    const previous = correctionRuns.at(-1);
+    if (
+      previous !== undefined &&
+      previous.mark === cell.mark &&
+      previous.row === row &&
+      previous.startColumn + previous.length === column
+    ) {
+      previous.length += 1;
+    } else {
+      correctionRuns.push({
+        mark: cell.mark,
+        row,
+        startColumn: column,
+        length: 1,
+      });
+    }
+  });
+
   return (
     <>
-      {cells.map((cell, index) =>
-        cell.mark === null ? (
-          <span key={index} className="diary-grid-cell">
-            {cell.text === " " ? "\u00a0" : cell.text}
-          </span>
-        ) : (
-          <span key={index} className="diary-grid-cell">
-            <mark
-              className={
-                cell.mark === "circle"
-                  ? "highlight-circle"
-                  : "highlight-underline"
-              }
-            >
-              {cell.text === " " ? "\u00a0" : cell.text}
-            </mark>
-          </span>
-        ),
-      )}
+      {cells.slice(0, columnCount * rowCount).map((cell, index) => (
+        <span key={index} className="diary-grid-cell">
+          {cell.text === " " ? "\u00a0" : cell.text}
+        </span>
+      ))}
+      <span className="diary-correction-layer" aria-hidden>
+        {correctionRuns.map((run, index) => (
+          <span
+            key={index}
+            className={`diary-correction diary-correction-${run.mark}`}
+            style={{
+              left: `${(run.startColumn / columnCount) * 100}%`,
+              top: `${(run.row / rowCount) * 100}%`,
+              width: `${(run.length / columnCount) * 100}%`,
+              height: `${100 / rowCount}%`,
+            }}
+          />
+        ))}
+      </span>
     </>
   );
 }
@@ -140,34 +171,33 @@ export function PreviewStep({
       </p>
 
       <div className="diary-card">
-        <div className="diary-spiral" aria-hidden>
-          {Array.from({ length: 12 }, (_, index) => (
-            <span key={index} />
-          ))}
-        </div>
+        <div className="diary-template">
+          <img
+            className="diary-template-frame"
+            src="/picture-diary-frame.png"
+            alt=""
+            aria-hidden
+          />
 
-        <div className="diary-card-heading">그림일기</div>
+          <div className="diary-card-header">
+            <span><strong>{year}</strong></span>
+            <span><strong>{Number(month)}</strong></span>
+            <span><strong>{Number(day)}</strong></span>
+            <span><strong>{weekday}</strong></span>
+            <span className="diary-weather"><strong>{weatherLabel(draft.weather)}</strong></span>
+          </div>
 
-        <div className="diary-card-header">
-          <span><strong>{year}</strong> 년</span>
-          <span><strong>{Number(month)}</strong> 월</span>
-          <span><strong>{Number(day)}</strong> 일</span>
-          <span><strong>{weekday}</strong> 요일</span>
-          <span className="diary-weather">날씨 : <strong>{weatherLabel(draft.weather)}</strong></span>
-        </div>
+          <div className="diary-title-row">
+            <strong>{draft.title !== "" ? draft.title : "제목 없는 일기"}</strong>
+          </div>
 
-        <div className="diary-title-row">
-          <span>제목 :</span>
-          <strong>{draft.title !== "" ? draft.title : "제목 없는 일기"}</strong>
-        </div>
-
-        <div className="diary-card-photo">
-          {draft.photoDataUrl !== null ? (
-            <>
-              <img
-                src={showsSketch ? sketchUrl : draft.photoDataUrl}
-                alt={showsSketch ? "색연필 그림으로 바뀐 일기 사진" : "일기 사진"}
-              />
+          <div className="diary-card-photo">
+            {draft.photoDataUrl !== null ? (
+              <>
+                <img
+                  src={showsSketch ? sketchUrl : draft.photoDataUrl}
+                  alt={showsSketch ? "색연필 그림으로 바뀐 일기 사진" : "일기 사진"}
+                />
               {sketchState.status === "loading" && (
                 // aria-hidden: the persistent live region at the top of this
                 // component already announces the conversion; reading this
@@ -186,42 +216,15 @@ export function PreviewStep({
                   {showOriginal ? "그림 보기" : "원본 사진 보기"}
                 </button>
               )}
-            </>
-          ) : (
-            <div className="diary-card-photo-empty">사진이 없어요</div>
-          )}
-        </div>
-
-        {sketchState.status === "error" && (
-          // #6b5e3f (not the lighter paper tones): 13px text needs ≥4.5:1
-          // contrast on the #fbf7e8 background to stay readable (WCAG AA).
-          <div className="sketch-error">
-            <Paragraph typography="t7" color="#6b5e3f">
-              {sketchState.message}
-            </Paragraph>
-            <div className="sketch-error-actions">
-              <Paragraph as="span" typography="t7" color="#6b5e3f">
-                원본 사진으로도 완성할 수 있어요
-              </Paragraph>
-              {/* No retry for moderation rejections: the same photo would be
-                  rejected again, contradicting the "다른 사진으로" guidance. */}
-              {sketchState.retryable && (
-                <Button
-                  size="small"
-                  variant="weak"
-                  color="dark"
-                  onClick={onSketchRetry}
-                >
-                  다시 시도
-                </Button>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="diary-card-photo-empty">사진이 없어요</div>
+            )}
           </div>
-        )}
 
-        <div className="diary-card-content">
-          <HighlightedContent content={draft.content} analysis={analysis} />
-        </div>
+          <div className="diary-card-content">
+            <HighlightedContent content={draft.content} analysis={analysis} />
+          </div>
 
         {/* Fixed colors throughout the card: it sits on a fixed paper
             background (#fffdf5), and the AIT provider is light-only today. */}
@@ -279,6 +282,30 @@ export function PreviewStep({
             </Paragraph>
           )}
         </div>
+        </div>
+
+        {sketchState.status === "error" && (
+          <div className="sketch-error">
+            <Paragraph typography="t7" color="#6b5e3f">
+              {sketchState.message}
+            </Paragraph>
+            <div className="sketch-error-actions">
+              <Paragraph as="span" typography="t7" color="#6b5e3f">
+                원본 사진으로도 완성할 수 있어요
+              </Paragraph>
+              {sketchState.retryable && (
+                <Button
+                  size="small"
+                  variant="weak"
+                  color="dark"
+                  onClick={onSketchRetry}
+                >
+                  다시 시도
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

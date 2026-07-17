@@ -29,7 +29,8 @@ export function formatKoreanDate(date: string): string {
 
 export const TITLE_MAX_LENGTH = 30;
 export const CONTENT_MIN_LENGTH = 20;
-export const CONTENT_MAX_LENGTH = 500;
+// The selected frame has 11 columns and 5 rows: one character per cell.
+export const CONTENT_MAX_LENGTH = 55;
 
 // Upload rules from the spec: JPG/JPEG/PNG/WEBP, max 10MB, reject tiny images.
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -38,4 +39,6 @@ export const MIN_IMAGE_DIMENSION_PX = 200;
 
 // Versioned key so a future draft-shape change can just bump the suffix
 // instead of writing migration code for old localStorage data.
-export const DRAFT_STORAGE_KEY = "summer-vacation-diary:draft:v1";
+// v2 clears the previously persisted test photo so the new bundled
+// family-drawing placeholder is visible on first launch.
+export const DRAFT_STORAGE_KEY = "summer-vacation-diary:draft:v2";
