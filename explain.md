@@ -138,7 +138,7 @@ interface DiaryDraft {
 }
 ```
 
-`useDiaryDraft`가 이 객체를 React 상태로 관리하고 `summer-vacation-diary:draft:v1` 키로 `localStorage`에 보관한다. 일반 변경은 400ms 디바운스 후 저장하고, 페이지가 숨겨지거나 종료될 때는 즉시 저장을 시도한다. 저장 데이터가 손상되었거나 필드 형식이 잘못되면 안전한 기본값으로 복구한다.
+`useDiaryDraft`가 이 객체를 React 상태로 관리하고 `summer-vacation-diary:draft:v2` 키로 `localStorage`에 보관한다. 일반 변경은 400ms 디바운스 후 저장하고, 페이지가 숨겨지거나 종료될 때는 즉시 저장을 시도한다. 저장 데이터가 손상되었거나 필드 형식이 잘못되면 안전한 기본값으로 복구한다.
 
 사진도 Base64 데이터 URL 형태로 초안 안에 들어간다. 저장 용량을 줄이기 위해 업로드 직후 최대 1280px, JPEG 품질 0.85로 축소·재인코딩한다.
 
