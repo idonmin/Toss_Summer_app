@@ -1,7 +1,7 @@
 import { Button, Loader, Paragraph } from "@toss/tds-mobile";
 import { useState } from "react";
 
-import { formatKoreanDate, weatherLabel } from "../constants/diary";
+import { weatherLabel } from "../constants/diary";
 import type { AnalysisState } from "../hooks/useDiaryAnalysis";
 import type { DiaryDraft } from "../hooks/useDiaryDraft";
 import type { SketchState } from "../hooks/useSketch";
