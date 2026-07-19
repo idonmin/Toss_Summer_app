@@ -8,6 +8,7 @@ import type { SketchState } from "../hooks/useSketch";
 import { isAiConnected } from "../services/diaryAnalysis";
 import type { DiaryAnalysis } from "../services/diaryAnalysis";
 import { buildDiaryTags } from "../utils/diaryImage";
+import { handwritingVariation } from "../utils/handwriting";
 import { buildHighlightSegments } from "../utils/highlight";
 
 interface PreviewStepProps {
@@ -16,6 +17,35 @@ interface PreviewStepProps {
   onRetry: () => void;
   sketchState: SketchState;
   onSketchRetry: () => void;
+}
+
+// 날짜/날씨/제목처럼 한 요소 안에 있는 문자열도 한 글자씩 나눠서
+// 본문과 같은 고정된 손글씨 흔들림을 적용합니다.
+function HandwrittenText({
+  text,
+  seedOffset = 0,
+}: {
+  text: string;
+  seedOffset?: number;
+}) {
+  return Array.from(text).map((character, index) => {
+    const variation = handwritingVariation(character, index + seedOffset);
+    return (
+      <span
+        key={`${index}-${character}`}
+        className="handwritten-character"
+        style={{
+          fontSize: `${variation.scale}em`,
+          // 날짜/날씨/제목에도 글자별 굵기와 농도 차이를 적용합니다.
+          fontWeight: variation.fontWeight,
+          opacity: variation.opacity,
+          transform: `translate(${variation.offsetXEm}em, ${variation.offsetYEm}em) rotate(${variation.rotationDeg}deg)`,
+        }}
+      >
+        {character === " " ? "\u00a0" : character}
+      </span>
+    );
+  });
 }
 
 // Renders the diary text onto an 11x5 manuscript grid, one character per cell.
@@ -97,11 +127,26 @@ function HighlightedContent({
 
   return (
     <>
-      {cells.slice(0, columnCount * rowCount).map((cell, index) => (
-        <span key={index} className="diary-grid-cell">
-          {cell.text === " " ? "\u00a0" : cell.text}
-        </span>
-      ))}
+      {cells.slice(0, columnCount * rowCount).map((cell, index) => {
+        // 본문만 1.6배 넓은 범위를 사용합니다. 날짜/날씨/제목은
+        // HandwrittenText의 기본 강도(1)를 유지해 읽기 쉽게 둡니다.
+        const variation = handwritingVariation(cell.text, index, 1);
+        return (
+          <span
+            key={index}
+            className="diary-grid-cell"
+            style={{
+              fontSize: `${variation.scale}em`,
+              // 본문에도 같은 굵기와 농도 변화를 적용합니다.
+              fontWeight: variation.fontWeight,
+              opacity: variation.opacity,
+              transform: `translate(${variation.offsetXEm}em, ${variation.offsetYEm}em) rotate(${variation.rotationDeg}deg)`,
+            }}
+          >
+            {cell.text === " " ? "\u00a0" : cell.text}
+          </span>
+        );
+      })}
       <span className="diary-correction-layer" aria-hidden>
         {correctionRuns.map((run, index) => (
           <span
@@ -182,15 +227,43 @@ export function PreviewStep({
           />
 
           <div className="diary-card-header">
-            <span><strong>{year}</strong></span>
-            <span><strong>{Number(month)}</strong></span>
-            <span><strong>{Number(day)}</strong></span>
-            <span><strong>{weekday}</strong></span>
-            <span className="diary-weather"><strong>{weatherLabel(draft.weather)}</strong></span>
+            <span>
+              <strong>
+                <HandwrittenText text={year} />
+              </strong>
+            </span>
+            <span>
+              <strong>
+                <HandwrittenText text={String(Number(month))} seedOffset={10} />
+              </strong>
+            </span>
+            <span>
+              <strong>
+                <HandwrittenText text={String(Number(day))} seedOffset={20} />
+              </strong>
+            </span>
+            <span>
+              <strong>
+                <HandwrittenText text={weekday} seedOffset={30} />
+              </strong>
+            </span>
+            <span className="diary-weather">
+              <strong>
+                <HandwrittenText
+                  text={weatherLabel(draft.weather)}
+                  seedOffset={40}
+                />
+              </strong>
+            </span>
           </div>
 
           <div className="diary-title-row">
-            <strong>{draft.title !== "" ? draft.title : "제목 없는 일기"}</strong>
+            <strong>
+              <HandwrittenText
+                text={draft.title !== "" ? draft.title : "제목 없는 일기"}
+                seedOffset={50}
+              />
+            </strong>
           </div>
 
           <div className="diary-card-photo">
@@ -198,26 +271,28 @@ export function PreviewStep({
               <>
                 <img
                   src={showsSketch ? sketchUrl : draft.photoDataUrl}
-                  alt={showsSketch ? "색연필 그림으로 바뀐 일기 사진" : "일기 사진"}
+                  alt={
+                    showsSketch ? "색연필 그림으로 바뀐 일기 사진" : "일기 사진"
+                  }
                 />
-              {sketchState.status === "loading" && (
-                // aria-hidden: the persistent live region at the top of this
-                // component already announces the conversion; reading this
-                // overlay too would announce it twice.
-                <div className="sketch-overlay" aria-hidden>
-                  <Loader size="small" />
-                  <span>사진을 색연필 그림으로 바꾸고 있어요</span>
-                </div>
-              )}
-              {sketchUrl !== null && (
-                <button
-                  type="button"
-                  className="sketch-toggle"
-                  onClick={() => setShowOriginal((value) => !value)}
-                >
-                  {showOriginal ? "그림 보기" : "원본 사진 보기"}
-                </button>
-              )}
+                {sketchState.status === "loading" && (
+                  // aria-hidden: the persistent live region at the top of this
+                  // component already announces the conversion; reading this
+                  // overlay too would announce it twice.
+                  <div className="sketch-overlay" aria-hidden>
+                    <Loader size="small" />
+                    <span>사진을 색연필 그림으로 바꾸고 있어요</span>
+                  </div>
+                )}
+                {sketchUrl !== null && (
+                  <button
+                    type="button"
+                    className="sketch-toggle"
+                    onClick={() => setShowOriginal((value) => !value)}
+                  >
+                    {showOriginal ? "그림 보기" : "원본 사진 보기"}
+                  </button>
+                )}
               </>
             ) : (
               <div className="diary-card-photo-empty">사진이 없어요</div>
@@ -228,62 +303,66 @@ export function PreviewStep({
             <HighlightedContent content={draft.content} analysis={analysis} />
           </div>
 
-        {/* Fixed colors throughout the card: it sits on a fixed paper
+          {/* Fixed colors throughout the card: it sits on a fixed paper
             background (#fffdf5), and the AIT provider is light-only today. */}
-        <div className="diary-card-comment">
-          <div className="diary-comment-label">선생님 한줄평</div>
-          {analysisState.status === "loading" && (
-            <div className="comment-loading">
-              <Loader size="small" />
-              <Paragraph as="span" typography="t7" color="#8a7d55">
-                선생님이 일기를 읽고 있어요...
-              </Paragraph>
-            </div>
-          )}
+          <div className="diary-card-comment">
+            <div className="diary-comment-label">선생님 한줄평</div>
+            {analysisState.status === "loading" && (
+              <div className="comment-loading">
+                <Loader size="small" />
+                <Paragraph as="span" typography="t7" color="#8a7d55">
+                  선생님이 일기를 읽고 있어요...
+                </Paragraph>
+              </div>
+            )}
 
-          {analysisState.status === "error" && (
-            <div className="comment-error">
-              <Paragraph typography="t7" color="#8a7d55">
-                {analysisState.message}
-              </Paragraph>
-              <Button
-                size="small"
-                variant="weak"
-                color="dark"
-                onClick={onRetry}
-              >
-                다시 시도
-              </Button>
-            </div>
-          )}
+            {analysisState.status === "error" && (
+              <div className="comment-error">
+                <Paragraph typography="t7" color="#8a7d55">
+                  {analysisState.message}
+                </Paragraph>
+                <Button
+                  size="small"
+                  variant="weak"
+                  color="dark"
+                  onClick={onRetry}
+                >
+                  다시 시도
+                </Button>
+              </div>
+            )}
 
-          {analysis !== null && (
-            <>
-              <Paragraph typography="t6" fontWeight="medium" color="#6b5e3f">
-                ✏️ {analysis.comment}
-              </Paragraph>
-              {tags.length > 0 && (
-                <div className="diary-tags">
-                  {tags.map((tag) => (
-                    <span key={tag} className="diary-tag">
-                      #{tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
+            {analysis !== null && (
+              <>
+                <Paragraph typography="t6" fontWeight="medium" color="#6b5e3f">
+                  ✏️ {analysis.comment}
+                </Paragraph>
+                {tags.length > 0 && (
+                  <div className="diary-tags">
+                    {tags.map((tag) => (
+                      <span key={tag} className="diary-tag">
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
-          {/* Outside the analysis-success branch on purpose: keyless users
+            {/* Outside the analysis-success branch on purpose: keyless users
               see the mock drawing even while the analysis is loading or has
               failed, and it must never pass for the real AI conversion. */}
-          {!isAiConnected && (
-            <Paragraph typography="t7" color="#6b5e3f" style={{ marginTop: 8 }}>
-              체험 모드 · AI와 연결되지 않아 예시 분석과 간단한 그림 효과가
-              보여요
-            </Paragraph>
-          )}
-        </div>
+            {!isAiConnected && (
+              <Paragraph
+                typography="t7"
+                color="#6b5e3f"
+                style={{ marginTop: 8 }}
+              >
+                체험 모드 · AI와 연결되지 않아 예시 분석과 간단한 그림 효과가
+                보여요
+              </Paragraph>
+            )}
+          </div>
         </div>
 
         {sketchState.status === "error" && (

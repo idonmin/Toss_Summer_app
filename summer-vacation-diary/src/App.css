@@ -1,3 +1,15 @@
+/* 아이 손글씨 폰트 적용 준비:
+   내려받은 TTF 파일을 public/fonts/ 로 넣으면
+   그림일기 미리보기와 저장 이미지에 자동으로 적용됩니다. */
+@font-face {
+  font-family: "NanumCoDingHeuiMang";
+  src: url("/fonts/NanumCoDingHeuiMang.ttf") format("truetype");
+  font-display: swap;
+  font-style: normal;
+  /* 실제 파일은 Regular 단일 굵기입니다. 다른 굵기는 브라우저가 합성합니다. */
+  font-weight: 400;
+}
+
 /* When the software keyboard opens, the browser scrolls the focused field
    into view; this padding keeps it clear of the fixed bottom CTA. */
 html {
@@ -132,6 +144,14 @@ html {
   color: #292929;
 }
 
+/* 아이가 직접 쓴 부분에만 손글씨 폰트를 적용합니다:
+   날짜/요일/날씨, 일기 제목, 일기 본문. */
+.diary-card-header strong,
+.diary-title-row strong,
+.diary-card-content {
+  font-family: "NanumCoDingHeuiMang", sans-serif;
+}
+
 .diary-template {
   position: relative;
   width: 100%;
@@ -216,17 +236,29 @@ html {
   color: #555;
 }
 
-.diary-card-header span {
+/* 직계 자식만 날짜/날씨 칸으로 배치합니다. 내부의 글자별 span까지
+   absolute가 되면 모든 글자가 같은 자리에 겹치므로 > 선택자가 필요합니다. */
+.diary-card-header > span {
   position: absolute;
   top: 55%;
   transform: translate(-50%, -50%);
 }
 
-.diary-card-header span:nth-child(1) { left: 6.2%; }
-.diary-card-header span:nth-child(2) { left: 16.7%; }
-.diary-card-header span:nth-child(3) { left: 27.1%; }
-.diary-card-header span:nth-child(4) { left: 37.5%; }
-.diary-card-header span:nth-child(5) { left: 85%; }
+.diary-card-header > span:nth-child(1) {
+  left: 6.2%;
+}
+.diary-card-header > span:nth-child(2) {
+  left: 16.7%;
+}
+.diary-card-header > span:nth-child(3) {
+  left: 27.1%;
+}
+.diary-card-header > span:nth-child(4) {
+  left: 37.5%;
+}
+.diary-card-header > span:nth-child(5) {
+  left: 85%;
+}
 
 .diary-card-header strong {
   color: #222;
@@ -331,6 +363,13 @@ html {
   line-height: 1;
 }
 
+/* 날짜/날씨/제목을 글자 단위로 움직일 수 있게 하되 줄바꿈은 유지합니다.
+   실제 크기/회전/위치는 handwriting.ts가 고정값으로 계산합니다. */
+.handwritten-character {
+  display: inline-block;
+  transform-origin: center;
+}
+
 .diary-correction-layer {
   position: absolute;
   inset: 0;
@@ -384,7 +423,8 @@ html {
   display: -webkit-box;
   margin: 0;
   overflow: hidden;
-  font-size: 10px !important;
+  /* 저장 이미지의 30px와 같은 비율로 보이도록 미리보기는 12px를 씁니다. */
+  font-size: 12px !important;
   line-height: 1.25 !important;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 1;
