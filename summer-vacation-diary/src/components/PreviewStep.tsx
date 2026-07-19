@@ -181,7 +181,6 @@ export function PreviewStep({
             aria-hidden
           />
 
-<<<<<<< HEAD
           <div className="diary-card-header">
             <span><strong>{year}</strong></span>
             <span><strong>{Number(month)}</strong></span>
@@ -193,69 +192,6 @@ export function PreviewStep({
           <div className="diary-title-row">
             <strong>{draft.title !== "" ? draft.title : "제목 없는 일기"}</strong>
           </div>
-=======
-        <div className="diary-card-photo">
-          {draft.photoDataUrl !== null ? (
-            <>
-              <img
-                src={showsSketch ? sketchUrl : draft.photoDataUrl}
-                alt={showsSketch ? "색연필 그림으로 바뀐 일기 사진" : "일기 사진"}
-              />
-              {sketchState.status === "loading" && (
-                // aria-hidden: the persistent live region at the top of this
-                // component already announces the conversion; reading this
-                // overlay too would announce it twice.
-                <div className="sketch-overlay" aria-hidden>
-                  <Loader size="small" />
-                  <span>사진을 색연필 그림으로 바꾸고 있어요</span>
-                </div>
-              )}
-              {sketchUrl !== null && (
-                <button
-                  type="button"
-                  className="sketch-toggle"
-                  onClick={() => setShowOriginal((value) => !value)}
-                >
-                  {showOriginal ? "그림 보기" : "원본 사진 보기"}
-                </button>
-              )}
-            </>
-          ) : (
-            <div className="diary-card-photo-empty">사진이 없어요</div>
-          )}
-        </div>
-
-        {sketchState.status === "error" && (
-          // #6b5e3f (not the lighter paper tones): 13px text needs ≥4.5:1
-          // contrast on the #fbf7e8 background to stay readable (WCAG AA).
-          <div className="sketch-error">
-            <Paragraph typography="t7" color="#6b5e3f">
-              {sketchState.message}
-            </Paragraph>
-            <div className="sketch-error-actions">
-              <Paragraph as="span" typography="t7" color="#6b5e3f">
-                원본 사진으로도 완성할 수 있어요
-              </Paragraph>
-              {/* No retry for moderation rejections: the same photo would be
-                  rejected again, contradicting the "다른 사진으로" guidance. */}
-              {sketchState.retryable && (
-                <Button
-                  size="small"
-                  variant="weak"
-                  color="dark"
-                  onClick={onSketchRetry}
-                >
-                  다시 시도
-                </Button>
-              )}
-            </div>
-          </div>
-        )}
-
-        <div className="diary-card-title">
-          {draft.title !== "" ? draft.title : "제목 없는 일기"}
-        </div>
->>>>>>> fa10ec5529084726dd2952ce8585ffb521dba185
 
           <div className="diary-card-photo">
             {draft.photoDataUrl !== null ? (
