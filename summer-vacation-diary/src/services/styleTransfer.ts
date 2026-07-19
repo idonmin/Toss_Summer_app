@@ -108,7 +108,6 @@ const REQUEST_TIMEOUT_MS = 120_000;
 
 // English prompt on purpose: image models follow style instructions written
 // in English more reliably, and no Korean user text is involved here.
-<<<<<<< HEAD
 export const CHILD_COLORED_PENCIL_PROMPT = [
   "Redraw the input image as an authentic colored-pencil drawing made by a 6–8-year-old child.",
   "",
@@ -223,15 +222,6 @@ const SKETCH_PROMPT = [
   "STRICT NEGATIVE CONSTRAINTS:",
   `Do not include any of the following: ${NEGATIVE_PROMPT}.`,
 ].join("\n");
-=======
-const SKETCH_PROMPT = [
-  "Redraw this exact photo as a warm colored-pencil drawing for a summer",
-  "vacation picture diary. Keep the same composition, subjects, poses and",
-  "overall colors as the original photo. Hand-drawn colored pencil strokes,",
-  "soft paper texture, gentle warm summer light. Do not add, remove or",
-  "replace any people or objects.",
-].join(" ");
->>>>>>> fa10ec5529084726dd2952ce8585ffb521dba185
 
 // The images endpoint takes multipart/form-data (a file upload), not JSON,
 // so the canvas data URL must be decoded back into binary first.
