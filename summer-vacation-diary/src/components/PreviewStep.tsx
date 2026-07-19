@@ -128,8 +128,7 @@ function HighlightedContent({
   return (
     <>
       {cells.slice(0, columnCount * rowCount).map((cell, index) => {
-        // 본문만 1.6배 넓은 범위를 사용합니다. 날짜/날씨/제목은
-        // HandwrittenText의 기본 강도(1)를 유지해 읽기 쉽게 둡니다.
+        // 본문도 날짜·날씨·제목과 동일한 기본 강도 1을 사용합니다.
         const variation = handwritingVariation(cell.text, index, 1);
         return (
           <span
