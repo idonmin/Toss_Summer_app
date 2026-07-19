@@ -160,14 +160,11 @@ export function PreviewStep({
   // Shared with the saved-image renderer so the preview and the exported
   // diary always show the same tags.
   const tags = analysis === null ? [] : buildDiaryTags(analysis);
-<<<<<<< HEAD
   const [year = "", month = "", day = ""] = draft.date.split("-");
   const diaryDate = new Date(`${draft.date}T00:00:00`);
   const weekday = Number.isNaN(diaryDate.getTime())
     ? ""
     : new Intl.DateTimeFormat("ko-KR", { weekday: "short" }).format(diaryDate);
-=======
->>>>>>> fa10ec5529084726dd2952ce8585ffb521dba185
 
   return (
     <div className="step-body">
