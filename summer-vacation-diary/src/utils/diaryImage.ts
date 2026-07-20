@@ -312,6 +312,51 @@ export function buildDiaryTags(analysis: DiaryAnalysis): string[] {
   ].slice(0, 6);
 }
 
+function wrapCanvasText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+): string[] {
+  const lines: string[] = [];
+  let currentLine = "";
+
+  for (const character of Array.from(text)) {
+    const candidate = currentLine + character;
+
+    if (
+      currentLine !== "" &&
+      context.measureText(candidate).width > maxWidth
+    ) {
+      lines.push(currentLine);
+      currentLine = character;
+    } else {
+      currentLine = candidate;
+    }
+  }
+
+  if (currentLine !== "") {
+    lines.push(currentLine);
+  }
+
+  if (lines.length <= maxLines) {
+    return lines;
+  }
+
+  const visibleLines = lines.slice(0, maxLines);
+  let lastLine = visibleLines[maxLines - 1];
+
+  while (
+    lastLine.length > 0 &&
+    context.measureText(`${lastLine}…`).width > maxWidth
+  ) {
+    lastLine = Array.from(lastLine).slice(0, -1).join("");
+  }
+
+  visibleLines[maxLines - 1] = `${lastLine}…`;
+  return visibleLines;
+}
+
 function drawComment(
   context: CanvasRenderingContext2D,
   analysis: DiaryAnalysis | null,
@@ -335,7 +380,21 @@ function drawComment(
   // 미리보기의 12px 한 줄 문장을 원본 템플릿 비율로 환산한 30px입니다.
   context.font = COMMENT_FONT;
   context.fillStyle = COMMENT_COLOR;
-  context.fillText(`✏️ ${analysis.comment}`, x + paddingX, y + 62);
+
+  const commentLines = wrapCanvasText(
+    context,
+    `✏️ ${analysis.comment}`,
+    width - paddingX * 2,
+    2,
+  );
+
+  commentLines.forEach((line, index) => {
+    context.fillText(
+      line,
+      x + paddingX,
+      y + 62 + index * 36,
+    );
+  });
 
   const tags = buildDiaryTags(analysis);
   context.font = TAG_FONT;

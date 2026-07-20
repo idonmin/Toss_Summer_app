@@ -421,7 +421,7 @@ html {
   font-size: 12px !important;
   line-height: 1.25 !important;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
 }
 
 /* --- Stage 2: analysis marks, tags and comment states --- */
